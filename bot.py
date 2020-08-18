@@ -6,7 +6,6 @@ import config
 from telebot import types
 from string import Template
 
-
 bot = telebot.TeleBot(config.TOKEN)
 
 user_dict = {}
@@ -29,11 +28,10 @@ def welcome(message):
 
     user_markup = telebot.types.ReplyKeyboardMarkup(True)
     user_markup.row('/start')
-    user_markup.row('Профиль','/Редакт.профиль')
+    user_markup.row('Профиль','Редакт.профиль')
     user_markup.row('О боте','Отзыв')
 
     bot.send_message(message.from_user.id,"Привет, {0.first_name}!\nЯ - <b>{1.first_name}</b>,здесь ты можешь найти себе друзей или любовь".format(message.from_user, bot.get_me()), reply_markup = user_markup,parse_mode = 'html')
-    bot.send_message(message.chat.id,message.from_user.id)
 
     #profile application
     inline_markup = telebot.types.InlineKeyboardMarkup()
@@ -43,13 +41,32 @@ def welcome(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def procces_first_step(call):
-    if call.data == 'good':
+    conn = pyodbc.connect("Driver={SQL Server};Server=DESKTOP-B5RC67H\SQLEXPRESS;Database=mydb;Trusted_Connection=yes;")
+
+    cursor = conn.cursor()
+    if call.data == 'well':
+        print('1')
         markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
         markup.row('Киев','Одесса')
         markup.row('Днепр','Москва')
         
         msg = bot.send_message(call.message.chat.id, 'Выберите город в которм вы живете:', reply_markup=markup)
         bot.register_next_step_handler(msg, anketa_city)
+    elif cursor.execute("SELECT user_id FROM Table_5 WHERE EXISTS(SELECT user_id FROM Table_5 WHERE user_id='{user_id}')"):    
+        user_markup = types.ReplyKeyboardMarkup(True)
+        user_markup.row('/start')
+        user_markup.row('Профиль','Редакт.профиль')
+        user_markup.row('О боте','Отзыв')
+        bot.send_message(call.message.chat.id, 'Вы уже создали профиль!',reply_markup = user_markup)
+        
+    else:
+        if call.data == 'good':
+            markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+            markup.row('Киев','Одесса')
+            markup.row('Днепр','Москва')
+        
+            msg = bot.send_message(call.message.chat.id, 'Выберите город в которм вы живете:', reply_markup=markup)
+            bot.register_next_step_handler(msg, anketa_city)
 
 def anketa_city(message):
     try:
@@ -119,7 +136,7 @@ def getRegData(user, title, name, message):
 
     user_markup = types.ReplyKeyboardMarkup(True)
     user_markup.row('/start')
-    user_markup.row('Профиль','/Редакт. профиль')
+    user_markup.row('Профиль','Редакт. профиль')
     user_markup.row('О боте','Отзыв')
     bot.send_message(message.chat.id, 'Аватарка:',reply_markup = user_markup)
     idphoto  = message.photo[0].file_id
@@ -128,13 +145,24 @@ def getRegData(user, title, name, message):
 
     t = Template('*$title* *$name* \n Город: *$userCity* \n Имя: *$name* \n Пол: *$male* \n Год: *$age*')
 
-    conn = pyodbc.connect("Driver={SQL Server};Server=DESKTOP-59BIPOH;Database=mydb;Trusted_Connection=yes;")
+    conn = pyodbc.connect("Driver={SQL Server};Server=DESKTOP-B5RC67H\SQLEXPRESS;Database=mydb;Trusted_Connection=yes;")
 
     cursor = conn.cursor()
+    if cursor.execute("SELECT user_id FROM Table_5 WHERE EXISTS(SELECT user_id FROM Table_5 WHERE user_id='{user_id}')"):
+            # cursor.execute("INSERT INTO Table_5 (user_id, Name, City, Male, Age, Photo_id) VALUES (?,?,?,?,?,?)", (user_id, name, user.city, user.male, user.age, idphoto))
+            cursor.execute("""UPDATE Table_5 SET Name = ?,
+                                                 City = ?,
+                                                 Male = ?,
+                                                 Age = ?,
+                                                 Photo_id = ?
+                                             WHERE user_id = ?""" , (name, user.city, user.male, user.age, idphoto, user_id))
+            conn.commit()
+            
+    else:
 
-    cursor.execute("SELECT Name FROM Table_2 WHERE Name = '{name}'")
-    cursor.execute("INSERT INTO Table_2 VALUES ( ?, ?, ?, ?, ?)", (user_id, name, user.city, user.male, user.age))
-    conn.commit()
+        cursor.execute("SELECT Name FROM Table_5 WHERE Name = '{name}'")
+        cursor.execute("INSERT INTO Table_5 VALUES ( ?, ?, ?, ?, ?, ?)", (user_id, name, user.city, user.male, user.age, idphoto))
+        conn.commit()
 
     return t.substitute({
         'title' : title,
@@ -145,43 +173,43 @@ def getRegData(user, title, name, message):
     })
 
 
-
-@bot.message_handler(commands=["Редакт.профиль"])
-def updates(message):
-    chat_id = message.chat.id
-    user_dict[chat_id] = User(message.text)
-    user = user_dict[chat_id]
+#ДЛЯ ТОГО ЧТОБЫ ПРОВЕРИТЬ ДУБЛИКАТ ЮЗАЙ EXISTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# @bot.message_handler(commands=["Редакт.профиль"])
+# def updates(message):
+    # chat_id = message.chat.id
+    # user_dict[chat_id] = User(message.text)
+    # user = user_dict[chat_id]
     # inline_markup = telebot.types.InlineKeyboardMarkup()
     # button1 = telebot.types.InlineKeyboardButton('Изменить профиль',callback_data='good')
     # inline_markup.add(button1)
     # bot.send_message(message.chat.id,"Вы точно хотите изменить профиль?",reply_markup = inline_markup)
     # if call.data == 'good':
-    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row('Киев','Одесса')
-    markup.row('Днепр','Москва')
+    # markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    # markup.row('Киев','Одесса')
+    # markup.row('Днепр','Москва')
         
-    msg = bot.send_message(message.chat.id, 'Выберите город в которм вы живете:', reply_markup=markup)
-    bot.register_next_step_handler(msg, anketa_city)
-    user_id = message.from_user.id
+#     msg = bot.send_message(message.chat.id, 'Выберите город в которм вы живете:', reply_markup=markup)
+#     bot.register_next_step_handler(msg, anketa_city)
+#     user_id = message.from_user.id
 
-    conn = pyodbc.connect("Driver={SQL Server};Server=DESKTOP-59BIPOH;Database=mydb;Trusted_Connection=yes;")
-    cursor = conn.cursor()
+#     conn = pyodbc.connect("Driver={SQL Server};Server=DESKTOP-B5RC67H;Database=mydb;Trusted_Connection=yes;")
+#     cursor = conn.cursor()
 
-    cursor.execute('SELECT User_id FROM Table_2 ORDER BY User_id')
-    order_id = cursor.fetchall()
-    print(order_id)
-    print(user_id)
-    update_profile = 'UPDATE Table_2 SET Name = {name} WHERE {order_id} = {user_id}'
-    conn.commit()
-    print('1')
+#     cursor.execute('SELECT User_id FROM Table_2 ORDER BY User_id')
+#     order_id = cursor.fetchall()
+#     print(order_id)
+#     print(user_id)
+#     update_profile = 'UPDATE Table_2 SET Name = {name} WHERE {order_id} = {user_id}'
+#     conn.commit()
+#     print('1')
 
 #         conn = pyodbc.connect("Driver={SQL Server};Server=DESKTOP-59BIPOH;Database=mydb;Trusted_Connection=yes;")
 
 #         cursor = conn.cursor()
 #         if cursor.fetchone() is None:
-#             cursor.execute("INSERT INTO Profiles ( Name, City, Male, Age) VALUES (?,?,?,?)", ('{user.name}', '{user.city}', '{user.male}', '{user.age}'))
-#             conn.commit()
-#             print('Зарегистрировано!')
+            # cursor.execute("INSERT INTO Profiles ( Name, City, Male, Age) VALUES (?,?,?,?)", ('{user.name}', '{user.city}', '{user.male}', '{user.age}'))
+            # conn.commit()
+            # print('Зарегистрировано!')
 #     except Exception as e:
 #         print(e)
 
@@ -195,6 +223,44 @@ def buttons_1(message):
        bot.register_next_step_handler(msg, feedback_step_2)
     elif message.text == 'О боте':
         bot.send_message(message.chat.id,'Скоро')#Этот бот был создан для того,чтобы пользователь смог найти себе друга,вторую половинку или просто новые знакомства
+    elif message.text == 'Профиль':
+        user_id = message.from_user.id
+        bot.send_message(message.chat.id,Show_profile(user_id,'Ваш профиль',message), parse_mode="Markdown")
+    elif message.text == 'Редакт.профиль':
+        chat_id = message.chat.id
+        user_dict[chat_id] = User(message.text)
+        user = user_dict[chat_id]
+        inline_markup = telebot.types.InlineKeyboardMarkup()
+        button1 = telebot.types.InlineKeyboardButton('Изменить профиль',callback_data='well')
+        inline_markup.add(button1)
+        bot.send_message(message.chat.id,"Вы точно хотите изменить профиль?",reply_markup = inline_markup)
+        
+def Show_profile(user_id,title,message):   
+    user_markup = types.ReplyKeyboardMarkup(True)
+    user_markup.row('/start')
+    user_markup.row('Профиль','Редакт.профиль')
+    user_markup.row('О боте','Отзыв')
+
+    conn = pyodbc.connect("Driver={SQL Server};Server=DESKTOP-B5RC67H\SQLEXPRESS;Database=mydb;Trusted_Connection=yes;")
+
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM Table_5 WHERE user_id=?", (user_id))
+    profile = cursor.fetchall()
+    for a in profile:
+        a = a
+    bot.send_message(message.chat.id, 'Аватарка:',reply_markup = user_markup)
+    idphoto  = a.Photo_id
+    bot.send_photo(message.chat.id, idphoto)
+    t = Template('*$title* *$name* \n Город: *$userCity* \n Имя: *$name* \n Пол: *$male* \n Год: *$age*')
+    
+    return t.substitute({
+        'title' : title,
+        'name' : a.Name,
+        'userCity' : a.City,
+        'male' : a.Male,
+        'age' : a.Age
+    })
+
 
 def feedback_step_2(message):
     try:  
